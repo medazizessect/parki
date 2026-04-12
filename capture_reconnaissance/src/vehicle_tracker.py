@@ -251,7 +251,7 @@ class VehicleTracker:
         dy = obj.centroid[1] - obj.prev_centroid[1]
         if abs(dx) > abs(dy):
             return "east" if dx > 0 else "west"
-        elif abs(dy) > abs(dx):
+        elif abs(dy) >= abs(dx) and (dx != 0 or dy != 0):
             return "south" if dy > 0 else "north"
         return "stationary"
 
