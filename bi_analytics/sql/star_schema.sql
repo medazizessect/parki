@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS dim_time (
     time_id      INT AUTO_INCREMENT PRIMARY KEY,
     hour         TINYINT  NOT NULL,
     day          TINYINT  NOT NULL,
-    day_of_week  TINYINT  NOT NULL COMMENT '1=Mon … 7=Sun (ISO)',
+    day_of_week  TINYINT  NOT NULL COMMENT '1=Sun … 7=Sat (MySQL DAYOFWEEK)',
     week         TINYINT  NOT NULL,
     month        TINYINT  NOT NULL,
     quarter      TINYINT  NOT NULL,

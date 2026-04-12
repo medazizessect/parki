@@ -253,8 +253,8 @@ def create_app() -> FastAPI:
             cameras: list[CameraInfo] = []
             traffic_points: list[TrafficPoint] = []
             for row in camera_rows:
-                lat = float(row["latitude"]) if row.get("latitude") else None
-                lng = float(row["longitude"]) if row.get("longitude") else None
+                lat = float(row["latitude"]) if row.get("latitude") is not None else None
+                lng = float(row["longitude"]) if row.get("longitude") is not None else None
                 if lat is None or lng is None:
                     continue
                 cameras.append(CameraInfo(
