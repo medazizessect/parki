@@ -191,6 +191,8 @@ class DatamartConnection:
                 dc.status,
                 dl.zone_name,
                 dl.road_name,
+                dl.latitude,
+                dl.longitude,
                 SUM(f.vehicle_count)    AS total_vehicles,
                 AVG(f.avg_speed)        AS avg_speed,
                 AVG(f.congestion_level) AS avg_congestion
@@ -198,7 +200,7 @@ class DatamartConnection:
             JOIN dim_camera   dc ON f.camera_id   = dc.camera_id
             JOIN dim_location dl ON f.location_id  = dl.location_id
             GROUP BY dc.camera_id, dc.camera_name, dc.status,
-                     dl.zone_name, dl.road_name
+                     dl.zone_name, dl.road_name, dl.latitude, dl.longitude
             ORDER BY total_vehicles DESC;
         """
         return self.execute(query)

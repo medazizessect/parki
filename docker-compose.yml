@@ -76,7 +76,6 @@ services:
     command:
       - -c
       - |
-        pip install apache-airflow==2.8.1 --quiet &&
         airflow db init &&
         airflow users create \
           --username admin \
@@ -104,8 +103,7 @@ services:
       context: ./capture_reconnaissance
       dockerfile: Dockerfile
     container_name: parki_airflow_webserver
-    command: >
-      bash -c "pip install apache-airflow==2.8.1 --quiet && airflow webserver --port 8080"
+    command: airflow webserver --port 8080
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: mysql+mysqlconnector://parki:${MYSQL_PASSWORD:-parki_secret}@mysql:3306/parki_capture
@@ -131,8 +129,7 @@ services:
       context: ./capture_reconnaissance
       dockerfile: Dockerfile
     container_name: parki_airflow_scheduler
-    command: >
-      bash -c "pip install apache-airflow==2.8.1 --quiet && airflow scheduler"
+    command: airflow scheduler
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: mysql+mysqlconnector://parki:${MYSQL_PASSWORD:-parki_secret}@mysql:3306/parki_capture

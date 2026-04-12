@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS dim_time (
     time_id      INT AUTO_INCREMENT PRIMARY KEY,
     hour         TINYINT  NOT NULL,
     day          TINYINT  NOT NULL,
-    day_of_week  TINYINT  NOT NULL COMMENT '1=Sun … 7=Sat (MySQL DAYOFWEEK)',
+    day_of_week  TINYINT  NOT NULL COMMENT '1=Mon … 7=Sun (ISO weekday)',
     week         TINYINT  NOT NULL,
     month        TINYINT  NOT NULL,
     quarter      TINYINT  NOT NULL,
@@ -130,7 +130,8 @@ BEGIN
 
     WHILE cur_date <= end_date DO
         SET cur_hour = 0;
-        SET v_dow  = DAYOFWEEK(cur_date);           -- 1=Sun … 7=Sat
+        -- Convert MySQL DAYOFWEEK (1=Sun…7=Sat) to ISO (1=Mon…7=Sun)
+        SET v_dow  = WEEKDAY(cur_date) + 1;          -- 1=Mon … 7=Sun
         SET v_week = WEEK(cur_date, 3);              -- ISO week
         SET v_qtr  = QUARTER(cur_date);
 
@@ -145,7 +146,7 @@ BEGIN
                 MONTH(cur_date),
                 v_qtr,
                 YEAR(cur_date),
-                v_dow IN (1, 7),                     -- Sunday or Saturday
+                v_dow >= 6,                              -- Saturday(6) or Sunday(7)
                 cur_hour BETWEEN 7 AND 9 OR cur_hour BETWEEN 17 AND 19
             );
             SET cur_hour = cur_hour + 1;
