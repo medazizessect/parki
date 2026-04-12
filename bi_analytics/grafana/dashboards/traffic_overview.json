@@ -1,0 +1,216 @@
+{
+  "__inputs": [],
+  "__elements": {},
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "mysql", "name": "MySQL", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" },
+    { "type": "panel", "id": "piechart", "name": "Pie chart", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "barchart", "name": "Bar chart", "version": "" }
+  ],
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Vehicle Count Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "mysql", "uid": "parki_mysql" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "spanNulls": false
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "parki_mysql" },
+          "format": "time_series",
+          "rawSql": "SELECT\n  CONCAT(dt.year, '-', LPAD(dt.month,2,'0'), '-', LPAD(dt.day,2,'0'), ' ', LPAD(dt.hour,2,'0'), ':00:00') AS time,\n  dc.camera_name AS metric,\n  SUM(f.vehicle_count) AS value\nFROM fact_traffic_events f\nJOIN dim_time dt ON f.time_id = dt.time_id\nJOIN dim_camera dc ON f.camera_id = dc.camera_id\nWHERE dc.camera_id IN ($camera_id)\n  AND CONCAT(dt.year, '-', LPAD(dt.month,2,'0'), '-', LPAD(dt.day,2,'0'))\n      BETWEEN DATE_FORMAT($__timeFrom(), '%Y-%m-%d') AND DATE_FORMAT($__timeTo(), '%Y-%m-%d')\nGROUP BY time, dc.camera_name\nORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Average Speed",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "mysql", "uid": "parki_mysql" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "velocitykmh",
+          "min": 0,
+          "max": 120,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 20 },
+              { "color": "yellow", "value": 40 },
+              { "color": "green", "value": 60 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "parki_mysql" },
+          "format": "table",
+          "rawSql": "SELECT AVG(f.avg_speed) AS avg_speed\nFROM fact_traffic_events f\nWHERE f.camera_id IN ($camera_id);",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Vehicle Type Distribution",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "mysql", "uid": "parki_mysql" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "parki_mysql" },
+          "format": "table",
+          "rawSql": "SELECT vt.type_name AS metric, SUM(f.vehicle_count) AS value\nFROM fact_traffic_events f\nJOIN dim_vehicle_type vt ON f.vehicle_type_id = vt.vehicle_type_id\nWHERE f.camera_id IN ($camera_id)\nGROUP BY vt.type_name\nORDER BY value DESC;",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right" },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Traffic Heatmap (Hour × Day-of-Week)",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "mysql", "uid": "parki_mysql" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "center" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "parki_mysql" },
+          "format": "table",
+          "rawSql": "SELECT\n  dt.day_of_week,\n  dt.hour,\n  SUM(f.vehicle_count) AS total_vehicles,\n  AVG(f.avg_speed)     AS avg_speed\nFROM fact_traffic_events f\nJOIN dim_time dt ON f.time_id = dt.time_id\nWHERE f.camera_id IN ($camera_id)\nGROUP BY dt.day_of_week, dt.hour\nORDER BY dt.day_of_week, dt.hour;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Camera Status",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 8 },
+      "datasource": { "type": "mysql", "uid": "parki_mysql" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "active": { "text": "Active", "color": "green" }, "inactive": { "text": "Inactive", "color": "red" } } }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "parki_mysql" },
+          "format": "table",
+          "rawSql": "SELECT camera_name, status FROM dim_camera WHERE camera_id IN ($camera_id);",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 6,
+      "title": "Top 5 Busiest Cameras",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "datasource": { "type": "mysql", "uid": "parki_mysql" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "parki_mysql" },
+          "format": "table",
+          "rawSql": "SELECT dc.camera_name, SUM(f.vehicle_count) AS total_vehicles\nFROM fact_traffic_events f\nJOIN dim_camera dc ON f.camera_id = dc.camera_id\nGROUP BY dc.camera_name\nORDER BY total_vehicles DESC\nLIMIT 5;",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "legend": { "displayMode": "hidden" }
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["parki", "traffic"],
+  "templating": {
+    "list": [
+      {
+        "name": "camera_id",
+        "type": "query",
+        "datasource": { "type": "mysql", "uid": "parki_mysql" },
+        "query": "SELECT camera_id AS __value, camera_name AS __text FROM dim_camera ORDER BY camera_name;",
+        "multi": true,
+        "includeAll": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "refresh": 1,
+        "label": "Camera"
+      },
+      {
+        "name": "time_range",
+        "type": "interval",
+        "query": "1h,6h,12h,1d,7d,30d",
+        "current": { "selected": false, "text": "1d", "value": "1d" },
+        "label": "Time Range"
+      }
+    ]
+  },
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Parki - Traffic Overview",
+  "uid": "parki-traffic-overview",
+  "version": 1
+}

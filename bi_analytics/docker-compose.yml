@@ -1,0 +1,90 @@
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------
+  # MySQL Datamart
+  # ---------------------------------------------------------------
+  mysql-datamart:
+    image: mysql:8.0
+    container_name: parki_mysql_datamart
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${BI_MYSQL_ROOT_PASSWORD:-rootsecret}
+      MYSQL_DATABASE: ${BI_MYSQL_DATABASE:-parki_datamart}
+      MYSQL_USER: ${BI_MYSQL_USER:-parki}
+      MYSQL_PASSWORD: ${BI_MYSQL_PASSWORD:-parki_secret}
+    ports:
+      - "${BI_MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql/star_schema.sql:/docker-entrypoint-initdb.d/01_star_schema.sql:ro
+    networks:
+      - parki_bi
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${BI_MYSQL_ROOT_PASSWORD:-rootsecret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------
+  # Grafana
+  # ---------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: parki_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${BI_GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${BI_GRAFANA_ADMIN_PASSWORD:-admin}
+      BI_MYSQL_HOST: mysql-datamart
+      BI_MYSQL_PORT: "3306"
+      BI_MYSQL_DATABASE: ${BI_MYSQL_DATABASE:-parki_datamart}
+      BI_MYSQL_USER: ${BI_MYSQL_USER:-parki}
+      BI_MYSQL_PASSWORD: ${BI_MYSQL_PASSWORD:-parki_secret}
+    ports:
+      - "${BI_GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      mysql-datamart:
+        condition: service_healthy
+    networks:
+      - parki_bi
+
+  # ---------------------------------------------------------------
+  # BI API (FastAPI)
+  # ---------------------------------------------------------------
+  bi-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: parki_bi_api
+    restart: unless-stopped
+    environment:
+      BI_MYSQL_HOST: mysql-datamart
+      BI_MYSQL_PORT: "3306"
+      BI_MYSQL_USER: ${BI_MYSQL_USER:-parki}
+      BI_MYSQL_PASSWORD: ${BI_MYSQL_PASSWORD:-parki_secret}
+      BI_MYSQL_DATABASE: ${BI_MYSQL_DATABASE:-parki_datamart}
+      BI_API_HOST: "0.0.0.0"
+      BI_API_PORT: "8000"
+      BI_GRAFANA_HOST: grafana
+      BI_GRAFANA_PORT: "3000"
+    ports:
+      - "${BI_API_PORT:-8000}:8000"
+    depends_on:
+      mysql-datamart:
+        condition: service_healthy
+    networks:
+      - parki_bi
+
+volumes:
+  mysql_data:
+  grafana_data:
+
+networks:
+  parki_bi:
+    driver: bridge
