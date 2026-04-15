@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: circuli-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: circuli
+      MYSQL_USER: circuli
+      MYSQL_PASSWORD: circuli
+    ports:
+      - "3306:3306"
+    volumes:
+      - circuli-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - circuli-bi-network
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: circuli-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: circuli
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/circuli_main_dashboard.json
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning.yaml:/etc/grafana/provisioning/dashboards/provisioning.yaml
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - circuli-grafana-data:/var/lib/grafana
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - circuli-bi-network
+
+  circuli-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: circuli-api
+    restart: unless-stopped
+    environment:
+      APP_NAME: Circuli
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: circuli
+      MYSQL_PASSWORD: circuli
+      MYSQL_DATABASE: circuli
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    networks:
+      - circuli-bi-network
+
+volumes:
+  circuli-mysql-data:
+  circuli-grafana-data:
+
+networks:
+  circuli-bi-network:
+    driver: bridge
