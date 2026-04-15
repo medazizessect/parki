@@ -32,20 +32,25 @@ datamart = DataMart(db)
 geo_analyzer = GeoAnalyzer(db)
 recommender = ParkingRecommender(db)
 
-YOUTUBE_STREAMS: list[dict] = [
-    {
-        "id": "default_stream_1",
-        "name": "City Center Camera",
-        "url": "https://www.youtube.com/watch?v=example1",
-        "status": "active",
-    },
-    {
-        "id": "default_stream_2",
-        "name": "Highway Junction",
-        "url": "https://www.youtube.com/watch?v=example2",
-        "status": "active",
-    },
-]
+YOUTUBE_STREAMS_CONFIG = BASE_DIR.parent / "capture_reconnaissance" / "config" / "youtube_streams.json"
+
+
+def _load_youtube_streams() -> list[dict]:
+    """Load YouTube streams from configuration file."""
+    try:
+        if YOUTUBE_STREAMS_CONFIG.exists():
+            with open(YOUTUBE_STREAMS_CONFIG, "r", encoding="utf-8") as f:
+                import json
+                data = json.load(f)
+            return [
+                {**s, "status": "active"} for s in data.get("streams", []) if s.get("enabled", False)
+            ]
+    except Exception as exc:
+        logger.warning("Could not load YouTube streams config: %s", exc)
+    return []
+
+
+YOUTUBE_STREAMS: list[dict] = _load_youtube_streams()
 
 BANNER = r"""
    _____ _                     _ _
