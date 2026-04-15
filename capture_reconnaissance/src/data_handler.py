@@ -64,7 +64,8 @@ class DataHandler:
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
         """
-        assert self._connection is not None, "Connection must be established before ensuring table"
+        if self._connection is None:
+            raise RuntimeError("Connection must be established before ensuring table")
         conn = self._connection
         cursor = conn.cursor()
         try:
