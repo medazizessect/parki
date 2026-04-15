@@ -143,7 +143,7 @@ async def get_detections(days: int = 7):
         logger.error("Circuli detections error: %s", exc)
         return JSONResponse(
             status_code=500,
-            content={"app_name": __app_name__, "error": str(exc)},
+            content={"app_name": __app_name__, "error": "Internal server error"},
         )
 
 
@@ -167,7 +167,7 @@ async def traffic_analytics(days: int = 7):
         logger.error("Circuli traffic analytics error: %s", exc)
         return JSONResponse(
             status_code=500,
-            content={"app_name": __app_name__, "error": str(exc)},
+            content={"app_name": __app_name__, "error": "Internal server error"},
         )
 
 
@@ -186,7 +186,7 @@ async def parking_analytics(days: int = 30, limit: int = 10):
         logger.error("Circuli parking analytics error: %s", exc)
         return JSONResponse(
             status_code=500,
-            content={"app_name": __app_name__, "error": str(exc)},
+            content={"app_name": __app_name__, "error": "Internal server error"},
         )
 
 
