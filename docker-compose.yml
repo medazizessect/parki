@@ -140,7 +140,10 @@ services:
       - circuli-network
     restart: always
     depends_on:
-      - grafana
+      grafana:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
 
   # ---------- MySQL ----------
   mysql:
