@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 from typing import Optional
+from urllib.parse import urlparse
 
 import cv2
 import numpy as np
@@ -14,6 +15,8 @@ from .config import (
     get_stream_url,
     load_youtube_streams,
 )
+
+YOUTUBE_HOSTS = {"www.youtube.com", "youtube.com", "youtu.be", "m.youtube.com"}
 
 logger = logging.getLogger(APP_NAME)
 
@@ -29,9 +32,18 @@ class VideoCapture:
         self._latest_frames: dict[int, Optional[np.ndarray]] = {}
         self._lock = threading.Lock()
 
+    @staticmethod
+    def _is_youtube_url(url: str) -> bool:
+        """Check if a URL is a valid YouTube URL using host parsing."""
+        try:
+            parsed = urlparse(url)
+            return parsed.hostname is not None and parsed.hostname in YOUTUBE_HOSTS
+        except Exception:
+            return False
+
     def _resolve_stream_url(self, url: str) -> str:
         """Resolve a YouTube URL to a direct stream URL, or return as-is for RTSP."""
-        if "youtube.com" in url or "youtu.be" in url:
+        if self._is_youtube_url(url):
             return get_stream_url(url, self.config)
         return url
 

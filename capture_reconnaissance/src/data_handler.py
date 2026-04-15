@@ -64,9 +64,8 @@ class DataHandler:
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
         """
+        assert self._connection is not None, "Connection must be established before ensuring table"
         conn = self._connection
-        if conn is None:
-            return
         cursor = conn.cursor()
         try:
             cursor.execute(create_sql)
