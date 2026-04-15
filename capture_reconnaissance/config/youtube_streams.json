@@ -1,0 +1,54 @@
+{
+  "app_name": "Circuli",
+  "description": "Default YouTube video streams for traffic analysis",
+  "streams": [
+    {
+      "id": 1,
+      "name": "Traffic Camera 1",
+      "url": "https://www.youtube.com/watch?v=ZZFgkly8XyE",
+      "enabled": true
+    },
+    {
+      "id": 2,
+      "name": "Traffic Camera 2",
+      "url": "https://www.youtube.com/watch?v=JACr5CpjS_Q",
+      "enabled": true
+    },
+    {
+      "id": 3,
+      "name": "Traffic Camera 3",
+      "url": "https://www.youtube.com/watch?v=BWtr3Od7lTk",
+      "enabled": true
+    },
+    {
+      "id": 4,
+      "name": "Traffic Camera 4",
+      "url": "https://www.youtube.com/watch?v=V8WuWZUwKzc",
+      "enabled": true
+    },
+    {
+      "id": 5,
+      "name": "Traffic Camera 5",
+      "url": "https://www.youtube.com/watch?v=auWahQLydIk",
+      "enabled": true
+    },
+    {
+      "id": 6,
+      "name": "Traffic Camera 6",
+      "url": "https://www.youtube.com/watch?v=v6USKejtl_k",
+      "enabled": true
+    },
+    {
+      "id": 7,
+      "name": "Traffic Camera 7",
+      "url": "https://www.youtube.com/watch?v=IcvugJWPXz8",
+      "enabled": true
+    }
+  ],
+  "settings": {
+    "max_retries": 3,
+    "retry_delay_seconds": 5,
+    "extraction_format": "best[height<=720]",
+    "auto_start": true
+  }
+}

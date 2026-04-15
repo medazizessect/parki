@@ -1,0 +1,7 @@
+opencv-python-headless>=4.8.0
+ultralytics>=8.0.0
+yt-dlp>=2023.10.0
+numpy>=1.24.0
+mysql-connector-python>=8.0.0
+apache-airflow>=2.7.0
+Pillow>=10.0.0

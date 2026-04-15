@@ -1,0 +1,123 @@
+{
+  "uid": "circuli-main-dashboard",
+  "title": "Circuli - Traffic Analytics",
+  "tags": ["circuli", "traffic", "analytics"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"display:flex;align-items:center;gap:12px;padding:8px;\"><img src=\"/public/img/circuli_logo.png\" height=\"40\"/> <span style=\"font-size:1.4em;font-weight:bold;\">Circuli Analytics</span></div>"
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Traffic Volume",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 3 },
+      "datasource": { "type": "mysql", "uid": "circuli-mysql" },
+      "targets": [
+        {
+          "rawSql": "SELECT dt.full_datetime AS time, SUM(f.count) AS vehicles FROM fact_detections f JOIN dim_time dt ON f.time_id = dt.time_id WHERE dt.full_datetime >= $__timeFrom() AND dt.full_datetime <= $__timeTo() GROUP BY dt.full_datetime ORDER BY dt.full_datetime",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "pointSize": 5,
+            "showPoints": "auto"
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "piechart",
+      "title": "Vehicle Types",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 3 },
+      "datasource": { "type": "mysql", "uid": "circuli-mysql" },
+      "targets": [
+        {
+          "rawSql": "SELECT dv.vehicle_type AS metric, SUM(f.count) AS value FROM fact_detections f JOIN dim_vehicle dv ON f.vehicle_id = dv.vehicle_id JOIN dim_time dt ON f.time_id = dt.time_id WHERE dt.full_datetime >= $__timeFrom() AND dt.full_datetime <= $__timeTo() GROUP BY dv.vehicle_type ORDER BY value DESC",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "pieType": "pie",
+        "legend": { "displayMode": "table", "placement": "right" }
+      }
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Parking Occupancy",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 11 },
+      "datasource": { "type": "mysql", "uid": "circuli-mysql" },
+      "targets": [
+        {
+          "rawSql": "SELECT (SUM(CASE WHEN f.is_parked = 1 THEN f.count ELSE 0 END) / GREATEST(SUM(f.count), 1)) * 100 AS occupancy FROM fact_detections f JOIN dim_time dt ON f.time_id = dt.time_id WHERE dt.date = CURDATE()",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 60, "color": "yellow" },
+              { "value": 85, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Active Streams",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 11 },
+      "datasource": { "type": "mysql", "uid": "circuli-mysql" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(DISTINCT dl.stream_id) AS active_streams FROM fact_detections f JOIN dim_location dl ON f.location_id = dl.location_id JOIN dim_time dt ON f.time_id = dt.time_id WHERE dt.date = CURDATE()",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "#1a73e8", "mode": "fixed" }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "style": "dark"
+}
