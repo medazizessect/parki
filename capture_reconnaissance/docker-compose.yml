@@ -1,0 +1,99 @@
+# ==============================================================
+# Parki Capture Reconnaissance — Docker Compose
+# ==============================================================
+# Services: MySQL 8.0, Airflow webserver / scheduler / init
+# ==============================================================
+
+version: "3.8"
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: mysql+mysqlconnector://airflow:airflow@mysql:3306/airflow_db
+    AIRFLOW__CORE__FERNET_KEY: ""
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/parki/airflow_dags
+    MYSQL_HOST: mysql
+    MYSQL_PORT: "3306"
+    MYSQL_USER: parki
+    MYSQL_PASSWORD: "${MYSQL_PASSWORD:-parki_secret}"
+    MYSQL_DATABASE: parki_capture
+    YOLO_MODEL_PATH: /opt/parki/models/yolov8s.pt
+    YOLO_DEVICE: cpu
+  volumes:
+    - ./airflow_dags:/opt/parki/airflow_dags
+    - ./src:/opt/parki/src
+    - ./config:/opt/parki/config
+    - airflow-logs:/opt/airflow/logs
+    - model-cache:/opt/parki/models
+  depends_on:
+    mysql:
+      condition: service_healthy
+  networks:
+    - parki-net
+
+services:
+  # ---- MySQL 8.0 ------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-root_secret}"
+      MYSQL_USER: parki
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-parki_secret}"
+      MYSQL_DATABASE: parki_capture
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_secret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - parki-net
+
+  # ---- Airflow init (run once) -----------------------------------
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db init &&
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@parki.local
+    restart: "no"
+
+  # ---- Airflow webserver -----------------------------------------
+  airflow-webserver:
+    <<: *airflow-common
+    command: airflow webserver --port 8080
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # ---- Airflow scheduler -----------------------------------------
+  airflow-scheduler:
+    <<: *airflow-common
+    command: airflow scheduler
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  airflow-logs:
+  model-cache:
+
+networks:
+  parki-net:
+    driver: bridge

@@ -1,0 +1,40 @@
+# =============================================================
+# Parki BI Analytics – Configuration
+# =============================================================
+
+database:
+  host: localhost
+  port: 3306
+  user: parki
+  password: parki_secret
+  database: parki_datamart
+  pool_name: parki_pool
+  pool_size: 5
+
+map:
+  center_lat: -23.5505
+  center_lng: -46.6333
+  zoom: 12
+  tile_provider: OpenStreetMap
+  output_dir: ./maps
+
+api:
+  host: 0.0.0.0
+  port: 8000
+  debug: false
+  cors_origins:
+    - "*"
+
+grafana:
+  host: localhost
+  port: 3000
+  admin_user: admin
+  admin_password: admin
+
+recommendations:
+  thresholds:
+    congestion_high: 0.75
+    congestion_medium: 0.50
+    speed_anomaly_std_factor: 2.0
+    heavy_vehicle_pct: 0.40
+    peak_vehicle_count: 500

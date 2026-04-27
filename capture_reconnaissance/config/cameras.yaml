@@ -1,0 +1,38 @@
+# Sample camera configuration for Parki capture reconnaissance.
+# Each entry describes a single RTSP camera stream.
+
+cameras:
+  - id: cam_01
+    name: "Entrada Principal - Av. Paulista"
+    rtsp_url: "rtsp://admin:password@192.168.1.101:554/stream1"
+    latitude: -23.5613
+    longitude: -46.6560
+    location: "Av. Paulista, 1000 — Entrada principal do estacionamento"
+
+  - id: cam_02
+    name: "Saída Norte - Rua Augusta"
+    rtsp_url: "rtsp://admin:password@192.168.1.102:554/stream1"
+    latitude: -23.5580
+    longitude: -46.6545
+    location: "Rua Augusta, 500 — Saída norte"
+
+  - id: cam_03
+    name: "Nível B1 - Corredor Central"
+    rtsp_url: "rtsp://admin:password@192.168.1.103:554/stream1"
+    latitude: -23.5610
+    longitude: -46.6558
+    location: "Subsolo B1 — Corredor central"
+
+  - id: cam_04
+    name: "Nível B2 - Rampa de Acesso"
+    rtsp_url: "rtsp://admin:password@192.168.1.104:554/stream1"
+    latitude: -23.5611
+    longitude: -46.6559
+    location: "Subsolo B2 — Rampa de acesso"
+
+  - id: cam_05
+    name: "Cobertura - Área VIP"
+    rtsp_url: "rtsp://admin:password@192.168.1.105:554/stream1"
+    latitude: -23.5609
+    longitude: -46.6562
+    location: "Cobertura — Estacionamento VIP"

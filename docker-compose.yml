@@ -1,0 +1,209 @@
+# ==============================================================
+# Parki — Global Docker Compose
+# ==============================================================
+# Orchestrates the full stack: capture + BI services.
+#
+# Usage:
+#   docker compose up -d            # start everything
+#   docker compose down              # stop everything
+#   docker compose logs -f           # follow all logs
+# ==============================================================
+
+version: "3.8"
+
+services:
+  # =============================================================
+  # Shared MySQL instance (capture + datamart schemas)
+  # =============================================================
+  mysql:
+    image: mysql:8.0
+    container_name: parki_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-root_secret}"
+      MYSQL_USER: parki
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-parki_secret}"
+      MYSQL_DATABASE: parki_capture
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./capture_reconnaissance/sql/schema.sql:/docker-entrypoint-initdb.d/01-capture-schema.sql:ro
+      - ./bi_analytics/sql/star_schema.sql:/docker-entrypoint-initdb.d/02-datamart-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_secret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - parki-net
+
+  # =============================================================
+  # Capture Reconnaissance Pipeline
+  # =============================================================
+  capture:
+    build:
+      context: ./capture_reconnaissance
+      dockerfile: Dockerfile
+    container_name: parki_capture
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: parki
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-parki_secret}"
+      MYSQL_DATABASE: parki_capture
+      YOLO_MODEL_PATH: /opt/parki/models/yolov8s.pt
+      YOLO_DEVICE: cpu
+    volumes:
+      - ./capture_reconnaissance/config:/opt/parki/config:ro
+      - model-cache:/opt/parki/models
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - parki-net
+
+  # =============================================================
+  # Airflow — init (runs once to set up the database)
+  # =============================================================
+  airflow-init:
+    build:
+      context: ./capture_reconnaissance
+      dockerfile: Dockerfile
+    container_name: parki_airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db init &&
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@parki.local
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: mysql+mysqlconnector://parki:${MYSQL_PASSWORD:-parki_secret}@mysql:3306/parki_capture
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - parki-net
+
+  # =============================================================
+  # Airflow Webserver
+  # =============================================================
+  airflow-webserver:
+    build:
+      context: ./capture_reconnaissance
+      dockerfile: Dockerfile
+    container_name: parki_airflow_webserver
+    command: airflow webserver --port 8080
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: mysql+mysqlconnector://parki:${MYSQL_PASSWORD:-parki_secret}@mysql:3306/parki_capture
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/parki/airflow_dags
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./capture_reconnaissance/airflow_dags:/opt/parki/airflow_dags:ro
+      - airflow-logs:/opt/airflow/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - parki-net
+
+  # =============================================================
+  # Airflow Scheduler
+  # =============================================================
+  airflow-scheduler:
+    build:
+      context: ./capture_reconnaissance
+      dockerfile: Dockerfile
+    container_name: parki_airflow_scheduler
+    command: airflow scheduler
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: mysql+mysqlconnector://parki:${MYSQL_PASSWORD:-parki_secret}@mysql:3306/parki_capture
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/parki/airflow_dags
+    volumes:
+      - ./capture_reconnaissance/airflow_dags:/opt/parki/airflow_dags:ro
+      - airflow-logs:/opt/airflow/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - parki-net
+
+  # =============================================================
+  # Grafana
+  # =============================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: parki_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+      BI_MYSQL_HOST: mysql
+      BI_MYSQL_PORT: "3306"
+      BI_MYSQL_DATABASE: parki_datamart
+      BI_MYSQL_USER: parki
+      BI_MYSQL_PASSWORD: "${MYSQL_PASSWORD:-parki_secret}"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./bi_analytics/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./bi_analytics/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./bi_analytics/grafana/provisioning:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - parki-net
+
+  # =============================================================
+  # BI API (FastAPI)
+  # =============================================================
+  bi-api:
+    build:
+      context: ./bi_analytics
+      dockerfile: Dockerfile
+    container_name: parki_bi_api
+    restart: unless-stopped
+    environment:
+      BI_MYSQL_HOST: mysql
+      BI_MYSQL_PORT: "3306"
+      BI_MYSQL_USER: parki
+      BI_MYSQL_PASSWORD: "${MYSQL_PASSWORD:-parki_secret}"
+      BI_MYSQL_DATABASE: parki_datamart
+      BI_API_HOST: "0.0.0.0"
+      BI_API_PORT: "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - parki-net
+
+volumes:
+  mysql-data:
+  airflow-logs:
+  model-cache:
+  grafana-data:
+
+networks:
+  parki-net:
+    driver: bridge
