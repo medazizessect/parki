@@ -32,16 +32,17 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-    entrypoint: /bin/bash
-    command: >
-      -c "airflow db init &&
-          airflow users create
-            --username airflow
-            --password airflow
-            --firstname Airflow
-            --lastname Admin
-            --role Admin
-            --email admin@circuli.local"
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        airflow db init &&
+        airflow users create \
+          --username airflow \
+          --password airflow \
+          --firstname Airflow \
+          --lastname Admin \
+          --role Admin \
+          --email admin@circuli.local || true
     restart: "no"
     networks:
       - circuli-network
@@ -62,7 +63,7 @@ services:
       AIRFLOW__WEBSERVER__RBAC: "True"
     ports:
       - "8080:8080"
-    command: airflow webserver
+    command: webserver
     volumes:
       - ./capture_reconnaissance/airflow_dags:/opt/airflow/dags
       - ./capture_reconnaissance/config:/opt/airflow/config
@@ -90,7 +91,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__WEBSERVER__BASE_URL: http://localhost:8080
       AIRFLOW__WEBSERVER__RBAC: "True"
-    command: airflow scheduler
+    command: scheduler
     volumes:
       - ./capture_reconnaissance/airflow_dags:/opt/airflow/dags
       - ./capture_reconnaissance/config:/opt/airflow/config
