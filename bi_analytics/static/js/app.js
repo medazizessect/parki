@@ -60,9 +60,18 @@ async function updateStreams() {
         .map(
             (stream) => `
         <div class="stream-card">
+            <div class="stream-feed">
+                <img
+                    class="stream-preview"
+                    src="/api/v1/stream/${encodeURIComponent(stream.id)}"
+                    alt="Live feed ${escapeHtml(stream.name)}"
+                    loading="lazy"
+                />
+            </div>
             <div class="stream-info">
                 <span class="stream-name">${escapeHtml(stream.name)}</span>
                 <span class="stream-url">${escapeHtml(stream.url)}</span>
+                <span class="stream-id">Stream ID: ${escapeHtml(String(stream.id))}</span>
             </div>
             <span class="stream-status ${stream.status === "active" ? "active" : "inactive"}">
                 ${stream.status === "active" ? "● Active" : "○ Inactive"}

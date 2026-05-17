@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY static/ ./static/
 COPY templates/ ./templates/
+COPY config/ ./config/
 
 ENV APP_NAME=Circuli
 ENV PYTHONPATH=/app

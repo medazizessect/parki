@@ -1,16 +1,21 @@
 """Circuli - FastAPI application for Smart Traffic & Parking Analytics."""
 
+import asyncio
+import json
 import logging
-import os
+import threading
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+import cv2
+import yt_dlp
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from ultralytics import YOLO
 
 from . import __app_name__, __version__
 from .database import DatabaseManager
@@ -32,25 +37,101 @@ datamart = DataMart(db)
 geo_analyzer = GeoAnalyzer(db)
 recommender = ParkingRecommender(db)
 
-YOUTUBE_STREAMS_CONFIG = BASE_DIR.parent / "capture_reconnaissance" / "config" / "youtube_streams.json"
+YOUTUBE_STREAMS_CONFIG_CANDIDATES = [
+    BASE_DIR / "config" / "youtube_streams.json",
+    BASE_DIR.parent / "capture_reconnaissance" / "config" / "youtube_streams.json",
+]
+VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
+_YOLO_MODEL: YOLO | None = None
+_YOLO_LOCK = threading.Lock()
 
 
 def _load_youtube_streams() -> list[dict]:
     """Load YouTube streams from configuration file."""
     try:
-        if YOUTUBE_STREAMS_CONFIG.exists():
-            with open(YOUTUBE_STREAMS_CONFIG, "r", encoding="utf-8") as f:
-                import json
-                data = json.load(f)
-            return [
-                {**s, "status": "active"} for s in data.get("streams", []) if s.get("enabled", False)
-            ]
+        for config_path in YOUTUBE_STREAMS_CONFIG_CANDIDATES:
+            if config_path.exists():
+                with open(config_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                return [{**s, "status": "active"} for s in data.get("streams", []) if s.get("enabled", False)]
     except Exception as exc:
         logger.warning("Could not load YouTube streams config: %s", exc)
     return []
 
 
-YOUTUBE_STREAMS: list[dict] = _load_youtube_streams()
+def _resolve_stream_url(youtube_url: str) -> str:
+    ydl_opts = {"format": "best[height<=720]", "quiet": True, "no_warnings": True}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(youtube_url, download=False)
+    stream_url = info.get("url", "")
+    if not stream_url:
+        raise RuntimeError("Empty stream URL returned by yt-dlp")
+    return stream_url
+
+
+def _get_yolo_model() -> YOLO:
+    global _YOLO_MODEL
+    if _YOLO_MODEL is None:
+        _YOLO_MODEL = YOLO("yolov8n.pt")
+    return _YOLO_MODEL
+
+
+def _annotate_frame(frame):
+    model = _get_yolo_model()
+    with _YOLO_LOCK:
+        results = model(frame, verbose=False)
+
+    for result in results:
+        boxes = result.boxes
+        if boxes is None:
+            continue
+        for i in range(len(boxes)):
+            class_id = int(boxes.cls[i].item())
+            confidence = float(boxes.conf[i].item())
+            if class_id not in VEHICLE_CLASSES:
+                continue
+            x1, y1, x2, y2 = [int(v) for v in boxes.xyxy[i].tolist()]
+            label = f"{VEHICLE_CLASSES[class_id]} {confidence:.2f}"
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (41, 121, 255), 2)
+            cv2.putText(
+                frame,
+                label,
+                (x1, max(20, y1 - 8)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (41, 121, 255),
+                2,
+                cv2.LINE_AA,
+            )
+    return frame
+
+
+async def _stream_generator(request: Request, stream: dict):
+    cap = None
+    try:
+        direct_url = await asyncio.to_thread(_resolve_stream_url, stream["url"])
+        cap = await asyncio.to_thread(cv2.VideoCapture, direct_url)
+        if not cap.isOpened():
+            raise RuntimeError(f"Cannot open stream {stream['id']}")
+
+        while True:
+            if await request.is_disconnected():
+                break
+            ret, frame = await asyncio.to_thread(cap.read)
+            if not ret:
+                await asyncio.sleep(0.1)
+                continue
+            frame = await asyncio.to_thread(_annotate_frame, frame)
+            ok, jpeg = await asyncio.to_thread(cv2.imencode, ".jpg", frame)
+            if not ok:
+                continue
+            yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + jpeg.tobytes() + b"\r\n"
+            await asyncio.sleep(0)
+    except Exception as exc:
+        logger.error("Circuli stream %s failed: %s", stream.get("id"), exc)
+    finally:
+        if cap is not None:
+            await asyncio.to_thread(cap.release)
 
 BANNER = r"""
    _____ _                     _ _
@@ -198,7 +279,22 @@ async def parking_analytics(days: int = 30, limit: int = 10):
 @app.get("/api/v1/streams")
 async def get_streams():
     """Return configured YouTube streams."""
+    streams = _load_youtube_streams()
     return {
         "app_name": __app_name__,
-        "streams": YOUTUBE_STREAMS,
+        "streams": streams,
     }
+
+
+@app.get("/api/v1/stream/{stream_id}")
+async def stream_video(stream_id: int, request: Request):
+    """Stream live video with YOLOv8 overlays as MJPEG."""
+    streams = _load_youtube_streams()
+    stream = next((item for item in streams if int(item.get("id", -1)) == stream_id), None)
+    if not stream:
+        raise HTTPException(status_code=404, detail=f"stream {stream_id} not found")
+
+    return StreamingResponse(
+        _stream_generator(request, stream),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
