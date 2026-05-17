@@ -249,11 +249,6 @@ body {
     word-break: break-all;
 }
 
-.stream-id {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
 .stream-status {
     align-self: flex-start;
     padding: 0.25rem 0.75rem;
