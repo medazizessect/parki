@@ -214,8 +214,24 @@ body {
     padding: 1.25rem;
     box-shadow: var(--shadow);
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+}
+
+.stream-feed {
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: #0f172a;
+}
+
+.stream-preview {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    display: block;
 }
 
 .stream-info {
@@ -234,6 +250,7 @@ body {
 }
 
 .stream-status {
+    align-self: flex-start;
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
     font-size: 0.8rem;

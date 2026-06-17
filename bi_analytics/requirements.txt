@@ -6,3 +6,6 @@ pandas>=2.1.0
 numpy>=1.24.0
 python-multipart>=0.0.6
 aiofiles>=23.0.0
+opencv-python-headless>=4.8.0
+ultralytics>=8.0.0
+yt-dlp>=2023.10.0

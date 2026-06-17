@@ -32,6 +32,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      PATH: /opt/airflow/.local/bin:/opt/airflow/bin:/opt/conda/bin:/opt/conda/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     entrypoint: /bin/bash
     command: >
       -c "airflow db init &&
@@ -41,7 +42,7 @@ services:
             --firstname Airflow
             --lastname Admin
             --role Admin
-            --email admin@circuli.local"
+            --email admin@circuli.local || true"
     restart: "no"
     networks:
       - circuli-network
